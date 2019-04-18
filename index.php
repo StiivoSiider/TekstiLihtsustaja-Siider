@@ -1,13 +1,9 @@
 <?php
+setlocale(LC_ALL, 'et_EE.UTF-8');
 
-# Võtame lihtsustatava lause URList
 $lause = $_GET['l'];
 echo $lause;
-
-# Käivitame Pythoni skripti andes parameetritks URLi parameetri l
-exec(escapeshellcmd('python syntaks.py "'.$lause.'"'), $tulemus);
-
-# Kuvame Pythoni skripti tulemuse
-echo '<pre>'; var_dump($tulemus); echo '</pre>'
-
+$lause = preg_replace('/\'/', '',$lause);
+$tulemus = shell_exec(escapeshellcmd('LC_ALL=et_EE.UTF-8 python3 syntaks.py \''.$lause.'\' arg 2>&1'));
+echo '<pre>'; print_r($tulemus); echo '</pre>'
 ?>
