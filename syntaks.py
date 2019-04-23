@@ -71,6 +71,11 @@ def lihtsusta(esialgne_sisend):
             tulemus += sisend.text + " "
             continue
 
+        # Suur lausealgustäht jäetakse alles vaid lühendite ning pärisnimede puhul.
+        if sisend.postags[0] not in {"H", "Y"}:
+            sisend.word_texts[0] = sisend.word_texts[0].lower()
+
+        print(sisend.word_texts)
         sisend.tag_syntax()
 
         süntaksi_list = list(zip(sisend.word_texts, sisend[LAYER_CONLL]))
