@@ -66,7 +66,7 @@ def sent_tokenize(text, tok):
     otsekõne = False
     token_count = 0
     for i, token in enumerate(tokens_copy):
-        if re.match('.?"', token):
+        if re.match('.?"', token) and not re.match('.*".?', token):
             otsekõne = True
             algus = i
         elif re.match('.*".?', token) and otsekõne:

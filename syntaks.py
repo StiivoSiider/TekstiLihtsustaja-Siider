@@ -1,10 +1,10 @@
 #!/usr/local/bin/python
 # coding: utf-8
+import html
+import nltk
 import re
 import sys
-import html
-
-import nltk
+from copy import deepcopy
 
 nltk.data.path.append("/home/veebid/ss_syntax/nltk_data")
 
@@ -17,8 +17,9 @@ from estnltk.syntax.parsers import MaltParser
 from custom_tokenizer import CustomWordTokenizer, CustomSentenceTokenizer
 
 DEBUG = True
-#DEBUG = False
-LAUSE_PEASÕNAD = {"ROOT", "@FMV", "@IMV"}
+# DEBUG = False
+LAUSE_PEASÕNAD = {"ROOT", "@FMV"}
+TEGUSÕNAD = {"@FMV", "@FCV", "@IMV", "@ICV", "@Vpart", "@VpartN", "@X", "@NEG"}
 ATRIBUUDID = {"@<AN", "@AN>", "@<NN", "@NN>",
               "@<DN", "@DN>", "@<INFN", "@INFN>",
               "@<KN", "@KN>", "@<P", "@P>", "@<Q", "@Q>"}
@@ -40,6 +41,7 @@ def lihtsusta(esialgne_sisend):
     tulemus = ""
     onLihtsustatud = False
     for sisend in sisendid.sentence_texts:
+        # ANALÜÜS
         sisend = Text(sisend, **KWARGS)
         if DEBUG:
             print(sisend.word_texts)
@@ -79,6 +81,7 @@ def lihtsusta(esialgne_sisend):
         sõna_list = []
         mitte_juur_lausepeasõnad = []
         lause_peasõnad = []
+        tegusõnad = []
         for i, element in enumerate(süntaksi_list):
             label, siht = element[1]['parser_out'][0]
             analüüs = analüüsi_list[i][0]
@@ -93,8 +96,10 @@ def lihtsusta(esialgne_sisend):
                             "pos": pos, "label": label, "target": siht}
             if label == "ROOT":
                 lause_peasõnad.append(element_info)
-            elif pos == "V" and label not in ATRIBUUDID or label in LAUSE_PEASÕNAD:
+            elif label in LAUSE_PEASÕNAD:
                 mitte_juur_lausepeasõnad.append(element_info)
+            if label in TEGUSÕNAD:
+                tegusõnad.append(element_info)
             if not analüüs["partofspeech"] == "Z":
                 siht_map[siht].append(element_info)
             sõna_list.append(element_info)
@@ -105,20 +110,43 @@ def lihtsusta(esialgne_sisend):
             tulemus += sisend.text + " "
             continue
 
+        tegusõnad = lause_peasõnad + tegusõnad
         lause_peasõnad.extend(mitte_juur_lausepeasõnad)
-        lause_peasõnad_koopia = []
-        lause_peasõnad_koopia.extend(lause_peasõnad)
 
-        for verb in lause_peasõnad_koopia:
-            for alluv in siht_map[verb["indeks"]]:
-                if alluv in lause_peasõnad_koopia:
-                    lause_peasõnad.remove(alluv)
+        if DEBUG:
+            pprint(tegusõnad)
+            pprint(lause_peasõnad)
+
+        # TRANSFORMATSIOON JA ANALÜÜS
+        for verb in tegusõnad:
+            for alluv in siht_map[verb["indeks"]][:]:
+                if alluv in lause_peasõnad:
+                    peasõnadEraldatud = False
+                    for alluva_alluv in siht_map[alluv["indeks"]]:
+                        if alluva_alluv["label"] == "@J" and alluva_alluv["lemma"] in {"ja", "ning"} or alluva_alluv[
+                            "pos"] == "P" and alluva_alluv["lemma"] in {
+                            "kes", "mis"}:
+                            subjektOnOlemas = kontrolliKasSubjektOlemas(alluv, siht_map)
+                            if not subjektOnOlemas:
+                                uus_subjekt = leiaTegusõnaSubjekt(verb, siht_map, sõna_list)
+                                if uus_subjekt != None:
+                                    peasõnadEraldatud = True
+                                    alluva_alluv.update(uus_subjekt)
+                            else:
+                                peasõnadEraldatud = True
+                                siht_map[alluv["indeks"]].remove(alluva_alluv)
+                            if peasõnadEraldatud:
+                                siht_map[verb["indeks"]].remove(alluv)
+                            break
+                    if not peasõnadEraldatud:
+                        lause_peasõnad.remove(alluv)
 
         if len(lause_peasõnad) <= 1:
             print("__ÜKS PEASÕNA__")
             tulemus += sisend.text + " "
             continue
 
+        # TRANSFORMATSIOON
         # Muudame kõik asesõnad vastavateks nimisõnadeks. Kasutades nimisõna mitmesust ja asesõna käänet.
         # Kasutades nii asesõna mitmesust kui käänet on võimalik, et tulemus pole see, mida ootame. Näiteks võib ainsuse asemel olla mitmus.
         # Semantilise info puudumise tõttu, saame iga tegusõna kohta asendada vaid ühe asesõna.
@@ -126,7 +154,8 @@ def lihtsusta(esialgne_sisend):
         kustutatavad = []
         for i, element in enumerate(sõna_list):
             if element["pos"] == "P":
-                if not(i > 2 and sõna_list[i - 1]["pos"] == "Z" and sõna_list[i - 2]["pos"] in {"S", "H"}\
+                if DEBUG: print(element)
+                if not (i > 2 and sõna_list[i - 1]["pos"] == "Z" and sõna_list[i - 2]["pos"] in {"S", "H"}
                         and element["lemma"] in {"kes", "mis"}):
                     siht = sõna_list[element["target"]]
                     if element["label"] == "@SUBJ":
@@ -162,6 +191,7 @@ def lihtsusta(esialgne_sisend):
                 element["lemma"] = asendus_lemma
                 element["form"] = uus_sõnavorm
                 element["pos"] = asendus["pos"]
+                print(element)
 
         for kustutatav in kustutatavad:
             try:
@@ -188,6 +218,28 @@ def lihtsusta(esialgne_sisend):
     return tulemus.strip()
 
 
+def teeSõnaKoopia(sõna):
+    uus_sõna = deepcopy(sõna)
+    uus_sõna["indeks"] = -2
+    return uus_sõna
+
+
+def kontrolliKasSubjektOlemas(verb, siht_map):
+    for alluv in siht_map[verb["indeks"]]:
+        if alluv["label"] == "@SUBJ":
+            return True
+    return False
+
+
+def leiaTegusõnaSubjekt(verb, siht_map, sõna_list):
+    for alluv in siht_map[verb["indeks"]]:
+        if alluv["label"] == "@SUBJ":
+            return teeSõnaKoopia(alluv)
+    if verb["target"] == -1:
+        return None
+    return leiaTegusõnaSubjekt(sõna_list[verb["target"]], siht_map, sõna_list)
+
+
 def tagastaAlluvad(sõna, siht_map):
     sõna_list = []
     for alluv in siht_map[sõna["indeks"]]:
@@ -203,16 +255,21 @@ def sobitaMalli(sõna, siht_map):
     for alluv in siht_map[sõna["indeks"]]:
         if sõna["pos"] == "V" or sõna["label"] in LAUSE_PEASÕNAD or alluv["pos"] != "V" or alluv["pos"] == "V" and \
                         alluv["label"] in ATRIBUUDID:
-            eelListi = ">" in alluv["label"] or alluv["label"] == "@J"
-            eelListi = eelListi or alluv["label"] in {"@SUBJ", "@FCV", "@NEG", "@ADVL"}
-            järgListi = "<" in alluv["label"] or sõna["pos"] == "V" and alluv["label"] in {"@PRD", "@ADVL", "@OBJ"}
-            järgListi2 = sõna["label"] == alluv["label"] and alluv["label"] in {"@SUBJ", "@PRD", "@ADVL", "@OBJ"}
-            järgListi3 = sõna["label"] == "ROOT" and sõna["pos"] == alluv["pos"] and alluv["label"] in {"@SUBJ", "@PRD", "@ADVL", "@OBJ"}
-            järgListi = järgListi or järgListi2 or järgListi3
-            if eelListi and not järgListi:
-                eel_list.extend(sobitaMalli(alluv, siht_map))
+            if alluv["label"] == "@J" and not (">" in sõna["label"] and alluv["indeks"] > sõna["target"]):
+                eel_list = sobitaMalli(alluv, siht_map) + eel_list
             else:
-                järg_list.extend(sobitaMalli(alluv, siht_map))
+                eelListi = ">" in alluv["label"] or alluv["label"] in {"@SUBJ", "@FCV", "@NEG", "@ADVL"}
+                järgListi = "<" in alluv["label"] or sõna["pos"] == "V" and alluv["label"] in {"@PRD", "@ADVL", "@OBJ"}
+                järgListi2 = sõna["label"] == alluv["label"] and alluv["label"] in {"@SUBJ", "@PRD", "@ADVL", "@OBJ"}
+                järgListi3 = sõna["label"] == "ROOT" and sõna["pos"] == alluv["pos"] and alluv["label"] in {"@SUBJ",
+                                                                                                            "@PRD",
+                                                                                                            "@ADVL",
+                                                                                                            "@OBJ"}
+                järgListi = järgListi or järgListi2 or järgListi3
+                if eelListi and not järgListi:
+                    eel_list.extend(sobitaMalli(alluv, siht_map))
+                else:
+                    järg_list.extend(sobitaMalli(alluv, siht_map))
     sõnade_list.extend(eel_list)
     sõnade_list.append(sõna)
     sõnade_list.extend(järg_list)
@@ -231,7 +288,7 @@ def moodustaLause(järjestus, lause=""):
 
 
 def eeltöötlus(sisend):
-    sisend = re.sub('\\\\', '', sisend) # Üleliigsete kaldkriipsude eemaldamine
+    sisend = re.sub('\\\\', '', sisend)  # Üleliigsete kaldkriipsude eemaldamine
     sisend = re.sub('\n', ' ', sisend)
     sisend = re.sub('[“”„«»]', '"', sisend)  # jutumärkide ühtlustamine
     #  sulgude ühtlustamine
@@ -241,4 +298,6 @@ def eeltöötlus(sisend):
 
 
 if len(sys.argv) > 2 and sys.argv[2] == "arg":
-    print('----',lihtsusta(sys.argv[1]))
+    print('----', lihtsusta(sys.argv[1]))
+
+    # print(lihtsusta("Poiss, kes istub pingil, mis on puu all, on väike."))
