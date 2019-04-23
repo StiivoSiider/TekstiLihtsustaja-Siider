@@ -52,9 +52,9 @@ def lihtsusta(esialgne_sisend):
 
         for sõna in sisend.split_by("words"):
             otsing = None
-            if re.match('.?"', sõna.text) and re.match('.*".?', sõna.text):
+            if re.match('.?".*".?', sõna.text):
                 otsing = re.search('^.?"(.*)".?$', sõna.text)
-            elif re.match('.?\(', sõna.text) and re.match('.*\).?', sõna.text):
+            elif re.match('.?\(.*\).?', sõna.text):
                 otsing = re.search('^.?\((.*)\).?$', sõna.text)
             if otsing:
                 sisu = otsing.group(1)
@@ -97,15 +97,22 @@ def lihtsusta(esialgne_sisend):
                     word = re.sub('(^[.,!?]|[.,!?]$)', '', word)
                     break
 
+            if re.match('.?\(.*\).?', word):
+                label = "@<"
+                pos = "SLG"
+                if analüüsi_list[siht][0]["partofspeech"] == "Z":
+                    siht -= 1 if siht > 0 else 0
+
             element_info = {"indeks": i, "word": word, "lemma": analüüs["lemma"], "form": analüüs["form"],
                             "pos": pos, "label": label, "target": siht}
+            if DEBUG: print(element_info)
             if label == "ROOT":
                 lause_peasõnad.append(element_info)
             elif label in LAUSE_PEASÕNAD:
                 mitte_juur_lausepeasõnad.append(element_info)
             if label in TEGUSÕNAD:
                 tegusõnad.append(element_info)
-            if not analüüs["partofspeech"] == "Z":
+            if not pos == "Z":
                 siht_map[siht].append(element_info)
             sõna_list.append(element_info)
 
@@ -128,9 +135,9 @@ def lihtsusta(esialgne_sisend):
                 if alluv in lause_peasõnad:
                     peasõnadEraldatud = False
                     for alluva_alluv in siht_map[alluv["indeks"]]:
-                        if alluva_alluv["label"] == "@J" and alluva_alluv["lemma"] in {"ja", "ning"} or alluva_alluv[
-                            "pos"] == "P" and alluva_alluv["lemma"] in {
-                            "kes", "mis"}:
+                        if alluva_alluv["indeks"] > verb["indeks"] and (
+                                    alluva_alluv["label"] == "@J" and alluva_alluv["lemma"] in {"ja", "ning"} or
+                                    alluva_alluv["pos"] == "P" and alluva_alluv["lemma"] in {"kes", "mis"}):
                             subjektOnOlemas = kontrolliKasSubjektOlemas(alluv, siht_map)
                             if not subjektOnOlemas:
                                 uus_subjekt = leiaTegusõnaSubjekt(verb, siht_map, sõna_list)
