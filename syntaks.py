@@ -10,14 +10,13 @@ nltk.data.path.append("/home/veebid/ss_syntax/nltk_data")
 
 from collections import defaultdict
 from pprint import pformat
-from estnltk import Text
-from estnltk import synthesize
+from estnltk import Text, synthesize
 from estnltk.names import LAYER_CONLL
 from estnltk.syntax.parsers import MaltParser
 from custom_tokenizer import CustomWordTokenizer, CustomSentenceTokenizer
 
 DEBUG = True
-#DEBUG = False
+# DEBUG = False
 LAUSE_PEASÕNAD = {"ROOT", "@FMV"}
 TEGUSÕNAD = {"@FMV", "@FCV", "@IMV", "@ICV", "@Vpart", "@VpartN", "@X", "@NEG"}
 ATRIBUUDID = {"@<AN", "@AN>", "@<NN", "@NN>",
@@ -140,8 +139,8 @@ def lihtsusta(esialgne_sisend):
                     peasõnadEraldatud = False
                     for alluva_alluv in siht_map[alluv["indeks"]]:
                         if alluva_alluv["indeks"] > verb["indeks"] and (
-                                    alluva_alluv["label"] == "@J" and alluva_alluv["lemma"] in {"ja", "ning"} or
-                                    alluva_alluv["pos"] == "P" and alluva_alluv["lemma"] in {"kes", "mis"}):
+                                            alluva_alluv["label"] == "@J" and alluva_alluv["lemma"] in {"ja", "ning"} or
+                                            alluva_alluv["pos"] == "P" and alluva_alluv["lemma"] in {"kes", "mis"}):
                             subjektOnOlemas = kontrolliKasSubjektOlemas(alluv, siht_map)
                             if not subjektOnOlemas:
                                 uus_subjekt = leiaTegusõnaSubjekt(verb, siht_map, sõna_list)
@@ -216,11 +215,11 @@ def lihtsusta(esialgne_sisend):
                 continue
 
         if DEBUG:
-            debug_info +=pformat(dict(siht_map))
-            debug_info +=pformat(lause_peasõnad)
-            debug_info +="---------------------------------------------------\n"
-            debug_info +=str(sisend_sõne)+'\n'
-            debug_info +="---------------------------------------------------\n"
+            debug_info += pformat(dict(siht_map))
+            debug_info += pformat(lause_peasõnad)
+            debug_info += "---------------------------------------------------\n"
+            debug_info += str(sisend_sõne) + '\n'
+            debug_info += "---------------------------------------------------\n"
 
         tulemus = ""
         for sõna in lause_peasõnad:
@@ -229,7 +228,7 @@ def lihtsusta(esialgne_sisend):
         onLihtsustatud = True
 
     if onLihtsustatud:
-        debug_info +="__LIHTSUSTATUD__\n"
+        debug_info += "__LIHTSUSTATUD__\n"
     return (tulemus.strip(), debug_info)
 
 
@@ -315,4 +314,3 @@ if len(sys.argv) > 2 and sys.argv[2] == "arg":
     result = lihtsusta(sys.argv[1])
     print(result[1])
     print('----', result[0])
-

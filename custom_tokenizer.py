@@ -1,7 +1,6 @@
+import nltk.data
 import re
 from copy import copy
-
-import nltk.data
 from estnltk import Text
 from estnltk.tokenizers import word_tokenizer
 from nltk.tokenize.api import StringTokenizer
@@ -51,8 +50,8 @@ def word_tokenize(text):
                 uuendus = True
         if uuendus:
             span = (spans_copy[algus][0], spans_copy[i][1])
-            spans[algus - token_count+1:i - token_count] = [span]
-            tokens[algus - token_count+1:i - token_count] = [text[span[0]:span[1]]]
+            spans[algus - token_count + 1:i - token_count] = [span]
+            tokens[algus - token_count + 1:i - token_count] = [text[span[0]:span[1]]]
             token_count = len(tokens_copy) - len(tokens)
             uuendus = False
     return tokens, spans
