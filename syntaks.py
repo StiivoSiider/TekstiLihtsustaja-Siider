@@ -9,7 +9,7 @@ from copy import deepcopy
 nltk.data.path.append("/home/veebid/ss_syntax/nltk_data")
 
 from collections import defaultdict
-from pprint import pprint
+from pprint import pformat
 from estnltk import Text
 from estnltk import synthesize
 from estnltk.names import LAYER_CONLL
@@ -17,7 +17,7 @@ from estnltk.syntax.parsers import MaltParser
 from custom_tokenizer import CustomWordTokenizer, CustomSentenceTokenizer
 
 DEBUG = True
-# DEBUG = False
+#DEBUG = False
 LAUSE_PEASÕNAD = {"ROOT", "@FMV"}
 TEGUSÕNAD = {"@FMV", "@FCV", "@IMV", "@ICV", "@Vpart", "@VpartN", "@X", "@NEG"}
 ATRIBUUDID = {"@<AN", "@AN>", "@<NN", "@NN>",
@@ -31,11 +31,12 @@ KWARGS = {
 
 
 def lihtsusta(esialgne_sisend):
+    debug_info = ""
     # Sisendi korrastamine
     sisend_sõne = eeltöötlus(esialgne_sisend)
 
     if DEBUG:
-        print(sisend_sõne)
+        debug_info += str(sisend_sõne) + '\n'
 
     sisendid = Text(sisend_sõne, **KWARGS)
     tulemus = ""
@@ -44,11 +45,11 @@ def lihtsusta(esialgne_sisend):
         # ANALÜÜS
         sisend = Text(sisend, **KWARGS)
         if DEBUG:
-            print(sisend.word_texts)
-            print(sisend.postags)
+            debug_info += str(sisend.word_texts) + '\n'
+            debug_info += str(sisend.postags) + '\n'
             parser = MaltParser()
             initial_output = parser.parse_text(sisend, return_type='conll')
-            print('\n'.join(initial_output))
+            debug_info += '\n'.join(initial_output) + '\n'
 
         for sõna in sisend.split_by("words"):
             otsing = None
@@ -58,7 +59,9 @@ def lihtsusta(esialgne_sisend):
                 otsing = re.search('^.?\((.*)\).?$', sõna.text)
             if otsing:
                 sisu = otsing.group(1)
-                sisend = sisend.replace(sisu, lihtsusta(sisu))
+                rekursioon = lihtsusta(sisu)
+                debug_info += rekursioon[1] + '\n'
+                sisend = sisend.replace(sisu, rekursioon[0])
 
         verbi_loendur = 0
         for i in range(len(sisend.postags)):
@@ -67,7 +70,7 @@ def lihtsusta(esialgne_sisend):
 
         # Lõpetame lause vaatamise kui meil on ainult 1 verb, kuna sel juhul on ilmselt tegemist lihtlausega
         if verbi_loendur <= 1:
-            print("__ÜKS TEGUSÕNA__")
+            debug_info += "__ÜKS TEGUSÕNA__\n"
             tulemus += sisend.text + " "
             continue
 
@@ -75,11 +78,11 @@ def lihtsusta(esialgne_sisend):
         if sisend.postags[0] not in {"H", "Y"}:
             sisend.word_texts[0] = sisend.word_texts[0].lower()
 
-        print(sisend.word_texts)
         sisend.tag_syntax()
 
         süntaksi_list = list(zip(sisend.word_texts, sisend[LAYER_CONLL]))
-        if DEBUG: pprint(süntaksi_list)
+        if DEBUG:
+            debug_info += pformat(süntaksi_list)
         analüüsi_list = sisend.analysis
 
         siht_map = defaultdict(list)
@@ -105,7 +108,8 @@ def lihtsusta(esialgne_sisend):
 
             element_info = {"indeks": i, "word": word, "lemma": analüüs["lemma"], "form": analüüs["form"],
                             "pos": pos, "label": label, "target": siht}
-            if DEBUG: print(element_info)
+            if DEBUG:
+                debug_info += str(element_info) + '\n'
             if label == "ROOT":
                 lause_peasõnad.append(element_info)
             elif label in LAUSE_PEASÕNAD:
@@ -118,7 +122,7 @@ def lihtsusta(esialgne_sisend):
 
         # Kui meil on mitu ROOT elementi, siis jätame selle vahele
         if len(lause_peasõnad) > 1:
-            print("__MITU JUURSÕNA__")
+            debug_info += "__MITU JUURSÕNA__\n"
             tulemus += sisend.text + " "
             continue
 
@@ -126,10 +130,10 @@ def lihtsusta(esialgne_sisend):
         lause_peasõnad.extend(mitte_juur_lausepeasõnad)
 
         if DEBUG:
-            pprint(tegusõnad)
-            pprint(lause_peasõnad)
+            debug_info += pformat(tegusõnad)
+            debug_info += pformat(lause_peasõnad)
 
-        # TRANSFORMATSIOON JA ANALÜÜS
+        # TRANSFORMATSIOON
         for verb in tegusõnad:
             for alluv in siht_map[verb["indeks"]][:]:
                 if alluv in lause_peasõnad:
@@ -154,11 +158,10 @@ def lihtsusta(esialgne_sisend):
                         lause_peasõnad.remove(alluv)
 
         if len(lause_peasõnad) <= 1:
-            print("__ÜKS PEASÕNA__")
+            debug_info += "__ÜKS PEASÕNA__\n"
             tulemus += sisend.text + " "
             continue
 
-        # TRANSFORMATSIOON
         # Muudame kõik asesõnad vastavateks nimisõnadeks. Kasutades nimisõna mitmesust ja asesõna käänet.
         # Kasutades nii asesõna mitmesust kui käänet on võimalik, et tulemus pole see, mida ootame. Näiteks võib ainsuse asemel olla mitmus.
         # Semantilise info puudumise tõttu, saame iga tegusõna kohta asendada vaid ühe asesõna.
@@ -166,7 +169,8 @@ def lihtsusta(esialgne_sisend):
         kustutatavad = []
         for i, element in enumerate(sõna_list):
             if element["pos"] == "P":
-                if DEBUG: print(element)
+                if DEBUG:
+                    debug_info += str(element) + '\n'
                 if not (i > 2 and sõna_list[i - 1]["pos"] == "Z" and sõna_list[i - 2]["pos"] in {"S", "H"}
                         and element["lemma"] in {"kes", "mis"}):
                     siht = sõna_list[element["target"]]
@@ -203,7 +207,6 @@ def lihtsusta(esialgne_sisend):
                 element["lemma"] = asendus_lemma
                 element["form"] = uus_sõnavorm
                 element["pos"] = asendus["pos"]
-                print(element)
 
         for kustutatav in kustutatavad:
             try:
@@ -213,11 +216,11 @@ def lihtsusta(esialgne_sisend):
                 continue
 
         if DEBUG:
-            pprint(dict(siht_map))
-            pprint(lause_peasõnad)
-            print("---------------------------------------------------")
-            print(sisend_sõne)
-            print("---------------------------------------------------")
+            debug_info +=pformat(dict(siht_map))
+            debug_info +=pformat(lause_peasõnad)
+            debug_info +="---------------------------------------------------\n"
+            debug_info +=str(sisend_sõne)+'\n'
+            debug_info +="---------------------------------------------------\n"
 
         tulemus = ""
         for sõna in lause_peasõnad:
@@ -226,8 +229,8 @@ def lihtsusta(esialgne_sisend):
         onLihtsustatud = True
 
     if onLihtsustatud:
-        print("__LIHTSUSTATUD__")
-    return tulemus.strip()
+        debug_info +="__LIHTSUSTATUD__\n"
+    return (tulemus.strip(), debug_info)
 
 
 def teeSõnaKoopia(sõna):
@@ -263,7 +266,6 @@ def tagastaAlluvad(sõna, siht_map):
 def sobitaMalli(sõna, siht_map):
     sõnade_list = []
     eel_list, järg_list = [], []
-    # print(word, target_map[word["indeks"]])
     for alluv in siht_map[sõna["indeks"]]:
         if sõna["pos"] == "V" or sõna["label"] in LAUSE_PEASÕNAD or alluv["pos"] != "V" or alluv["pos"] == "V" and \
                         alluv["label"] in ATRIBUUDID:
@@ -310,6 +312,7 @@ def eeltöötlus(sisend):
 
 
 if len(sys.argv) > 2 and sys.argv[2] == "arg":
-    print('----', lihtsusta(sys.argv[1]))
+    result = lihtsusta(sys.argv[1])
+    print(result[1])
+    print('----', result[0])
 
-    # print(lihtsusta("Poiss, kes istub pingil, mis on puu all, on väike."))
