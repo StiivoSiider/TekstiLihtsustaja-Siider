@@ -111,7 +111,7 @@ def lihtsusta(esialgne_sisend):
                 debug_info += str(element_info) + '\n'
             if label == "ROOT":
                 lause_peasõnad.append(element_info)
-            elif label in LAUSE_PEASÕNAD:
+            elif label == "@FMV":
                 mitte_juur_lausepeasõnad.append(element_info)
             if label in TEGUSÕNAD:
                 tegusõnad.append(element_info)
@@ -137,26 +137,29 @@ def lihtsusta(esialgne_sisend):
             for alluv in siht_map[verb["indeks"]][:]:
                 if alluv in lause_peasõnad:
                     peasõnadEraldatud = False
-                    for alluva_alluv in siht_map[alluv["indeks"]]:
-                        if alluva_alluv["indeks"] > verb["indeks"] and (
-                                            alluva_alluv["label"] == "@J" and alluva_alluv["lemma"] in {"ja", "ning"} or
-                                            alluva_alluv["pos"] == "P" and alluva_alluv["lemma"] in {"kes", "mis"}):
-                            subjektOnOlemas = kontrolliKasSubjektOlemas(alluv, siht_map)
-                            if not subjektOnOlemas:
-                                uus_subjekt = leiaTegusõnaSubjekt(verb, siht_map, sõna_list)
-                                if uus_subjekt != None:
+                    if not (verb["label"] == "ROOT" and verb["pos"] != "V"):
+                        for alluva_alluv in siht_map[alluv["indeks"]]:
+                            if alluva_alluv["indeks"] > verb["indeks"] and (
+                                                alluva_alluv["label"] == "@J" and alluva_alluv["lemma"] in {"ja", "ning"} or
+                                                alluva_alluv["pos"] == "P" and alluva_alluv["lemma"] in {"kes", "mis"}):
+                                subjekt = leiaOtseneSubjekt(alluv, siht_map)
+                                if subjekt is None:
+                                    uus_subjekt = leiaTegusõnaSubjekt(verb, siht_map, sõna_list)
+                                    if uus_subjekt != None:
+                                        peasõnadEraldatud = True
+                                        alluva_alluv.update(uus_subjekt)
+                                else:
                                     peasõnadEraldatud = True
-                                    alluva_alluv.update(uus_subjekt)
-                            else:
-                                peasõnadEraldatud = True
-                                siht_map[alluv["indeks"]].remove(alluva_alluv)
-                            if peasõnadEraldatud:
-                                siht_map[verb["indeks"]].remove(alluv)
-                            break
+                                    if alluva_alluv != subjekt:
+                                        siht_map[alluv["indeks"]].remove(alluva_alluv)
+                                if peasõnadEraldatud:
+                                    siht_map[verb["indeks"]].remove(alluv)
+                                break
                     if not peasõnadEraldatud:
                         lause_peasõnad.remove(alluv)
 
         if len(lause_peasõnad) <= 1:
+            debug_info += pformat(lause_peasõnad)
             debug_info += "__ÜKS PEASÕNA__\n"
             tulemus += sisend.text + " "
             continue
@@ -238,17 +241,17 @@ def teeSõnaKoopia(sõna):
     return uus_sõna
 
 
-def kontrolliKasSubjektOlemas(verb, siht_map):
+def leiaOtseneSubjekt(verb, siht_map):
     for alluv in siht_map[verb["indeks"]]:
         if alluv["label"] == "@SUBJ":
-            return True
-    return False
+            return alluv
+    return None
 
 
 def leiaTegusõnaSubjekt(verb, siht_map, sõna_list):
-    for alluv in siht_map[verb["indeks"]]:
-        if alluv["label"] == "@SUBJ":
-            return teeSõnaKoopia(alluv)
+    subjekt = leiaOtseneSubjekt(verb, siht_map)
+    if subjekt is not None:
+        return teeSõnaKoopia(subjekt)
     if verb["target"] == -1:
         return None
     return leiaTegusõnaSubjekt(sõna_list[verb["target"]], siht_map, sõna_list)
