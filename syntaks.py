@@ -224,7 +224,6 @@ def lihtsusta(esialgne_sisend):
             debug_info += str(sisend_sõne) + '\n'
             debug_info += "---------------------------------------------------\n"
 
-        tulemus = ""
         for sõna in lause_peasõnad:
             lause = moodustaLause(sobitaMalli(sõna, siht_map))
             tulemus += lause.strip() + '. '
