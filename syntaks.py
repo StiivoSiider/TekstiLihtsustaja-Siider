@@ -1,5 +1,13 @@
 #!/usr/local/bin/python
 # coding: utf-8
+"""
+Teksti lihtsustaja, mis rakendab süntaktilist lihtsustamist
+Autor: Stiivo Siider
+
+Lihtsustaja peamiseks kasutusviisiks on käsurealt käsklusega:
+
+> python3 syntaks.py '<Lihtsustatav lause>' arg
+"""
 import html
 import nltk
 import re
@@ -14,6 +22,8 @@ from estnltk import Text, synthesize
 from estnltk.names import LAYER_CONLL
 from estnltk.syntax.parsers import MaltParser
 from custom_tokenizer import CustomWordTokenizer, CustomSentenceTokenizer
+
+
 
 DEBUG = True
 # DEBUG = False
@@ -30,6 +40,12 @@ KWARGS = {
 
 
 def lihtsusta(esialgne_sisend):
+    """
+    Peameetod sisendi lihtsustamiseks
+
+    :param str esialgne_sisend: lihtsustatav sisend
+    :return: paar lihtsustatud sisendist ning lisainformatsioonist
+    """
     debug_info = ""
     # Sisendi korrastamine
     sisend_sõne = eeltöötlus(esialgne_sisend)
@@ -119,7 +135,7 @@ def lihtsusta(esialgne_sisend):
                 siht_map[siht].append(element_info)
             sõna_list.append(element_info)
 
-        # Kui meil on mitu ROOT elementi, siis jätame selle vahele
+        # Kui meil on mitu ROOT elementi, siis jätame lause vahele
         if len(lause_peasõnad) > 1:
             debug_info += "__MITU JUURSÕNA__\n"
             tulemus += sisend.text + " "
@@ -265,6 +281,13 @@ def tagastaAlluvad(sõna, siht_map):
 
 
 def sobitaMalli(sõna, siht_map):
+    """
+    Sõnapõhine lausemall
+
+    :param sõna: Sõna, mille alluvate asukohti määratakse
+    :param siht_map: Sõltuvustabel
+    :return: Järjestatud sõna koos alluvatega
+    """
     sõnade_list = []
     eel_list, järg_list = [], []
     for alluv in siht_map[sõna["indeks"]]:

@@ -1,13 +1,14 @@
 #!/usr/local/bin/python
 # coding: utf-8
-import nltk
-
-nltk.data.path.append("/home/veebid/ss_syntax/nltk_data")
+"""
+Korpuse automaattestija, mis käib läbi kogu etteantud korpuse ning kogub lihtsustamistulemuste kohta statistikat
+Autor: Stiivo Siider
+"""
 import estnltk
-from estnltk import teicorpus
-from estnltk import Text
 import re
 import requests
+from estnltk import Text
+from estnltk import teicorpus
 
 
 def testCorp():
@@ -33,7 +34,7 @@ def testCorp():
                     rootCounter += 1
                 elif "__ÜKS PEASÕNA__" in info:
                     main1Counter += 1
-                elif "__LIHTSUSTATUD__" in info:
+                if "__LIHTSUSTATUD__" in info:
                     simplifiedCounter += 1
                     print(sentence)
                     print(lause)

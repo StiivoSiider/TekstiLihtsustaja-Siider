@@ -1,3 +1,12 @@
+# coding=utf-8
+"""
+EstNLTK poolt kasutatavate sõnestajate ja lihtsustajate laiendus
+Autor: Stiivo Siider
+
+Tokeniseerijad rakendavad kõigepealt EstNLTK vastavaid tokeniseerijaid ning seejärel muudavad
+nende tulemusi, grupeerides kokku jutumärkide ning sulgude vahel olevad olevad laused ning sõned.
+"""
+
 import nltk.data
 import re
 from copy import copy

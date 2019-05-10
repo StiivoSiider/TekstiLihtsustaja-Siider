@@ -1,4 +1,13 @@
 # coding=utf-8
+"""
+Juhusliku lause lihtsustaja
+Autor: Stiivo Siider
+
+Skript, mis käsurealt käivitades võtab endaga samas kaustas olevast kaustast "korp" suvalise korpusefaili
+ning võttes juhuslikult lauseid annab neid lihtsustajale ette.
+
+Igast korpusefailist vaadeldakse kuni 50 lauset, mille järel loetakse sisse uus korpus.
+"""
 import os
 import random
 import syntaks
@@ -10,10 +19,10 @@ def simplifyRandom():
     while True:
         path = 'korp/' + random.choice(os.listdir('korp'))
         fail = teicorpus.parse_tei_corpus(path, target=["artikkel", "alaosa", "tervikteos"])
-        for _ in range(2):
+        for _ in range(5):
             artikkel = random.choice(fail)
             laused = artikkel.sentence_texts
-            for _ in range(25):
+            for _ in range(10):
                 lause = random.choice(laused)
                 lihtsustatud, debug = syntaks.lihtsusta(lause)
                 counter += 1
